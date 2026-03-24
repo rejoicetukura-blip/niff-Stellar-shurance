@@ -16,6 +16,11 @@ pub const IMAGE_URL_MAX_LEN: u32 = 128;
 pub const IMAGE_URLS_MAX: u32 = 5;
 pub const REASON_MAX_LEN: u32 = 128;
 
+/// Voting window in ledgers (~7 days at 5 s/ledger ≈ 120_960 ledgers).
+/// After this many ledgers from claim filing the vote is closed and
+/// finalize_claim may be called to settle the outcome.
+pub const VOTE_WINDOW_LEDGERS: u32 = 120_960;
+
 // ── policy_id assignment ─────────────────────────────────────────────────────
 //
 // policy_id is a u32 scoped per holder: the contract increments a per-holder
@@ -123,17 +128,52 @@ pub struct Policy {
 
 /// On-chain claim record.
 ///
-/// | Field         | Authoritative | Notes |
-/// |---------------|---------------|-------|
-/// | claim_id      | on-chain      | global monotonic u64 from ClaimCounter |
-/// | policy_id     | on-chain      | references Policy(holder, policy_id) |
-/// | claimant      | on-chain      | must equal policy.holder |
-/// | amount        | on-chain      | stroops; 0 < amount ≤ policy.coverage |
-/// | details       | on-chain      | ≤ DETAILS_MAX_LEN bytes |
-/// | image_urls    | on-chain      | ≤ IMAGE_URLS_MAX items, each ≤ IMAGE_URL_MAX_LEN |
-/// | status        | on-chain      | ClaimStatus state machine |
-/// | approve_votes | on-chain      | running tally |
-/// | reject_votes  | on-chain      | running tally |
+/// ## Snapshot vs live-voter fairness decision
+///
+/// **Design choice: snapshot at claim-filing time.**
+///
+/// When `file_claim` is called the contract captures the current `Voters`
+/// Vec<Address> into `DataKey::ClaimVoters(claim_id)`.  Only addresses present
+/// in that snapshot may cast a ballot on this claim.
+///
+/// Rationale:
+/// - A holder who terminates their policy *after* a claim is filed but *before*
+///   voting closes retains their vote right; they were a member when the claim
+///   arose.  This prevents a griefing vector where an adversary joins, files a
+///   claim, then mass-terminates policies to shrink the quorum denominator.
+/// - New policyholders who join after filing cannot influence an existing claim;
+///   they had no stake when the loss event occurred.
+/// - Fairness trade-off: a holder who terminates mid-vote keeps their vote
+///   weight.  UI copy must reflect this ("Your vote stands even if your policy
+///   lapses before the deadline").
+///
+/// ## Vote mutability
+///
+/// Votes are **immutable after first cast**.  Once `DataKey::Vote(claim_id,
+/// voter)` is written it cannot be overwritten.  This prevents last-minute
+/// flip attacks and simplifies tally reconciliation.
+///
+/// ## Tally maintenance
+///
+/// `approve_votes` and `reject_votes` are incremented atomically inside
+/// `vote_on_claim` immediately after the per-voter record is written.  Because
+/// Soroban contracts are single-threaded there is no race condition; the
+/// running counters always equal the number of `Vote(claim_id, *)` entries for
+/// each option.  Finalization reads only the two counters — O(1), no scan.
+///
+/// | Field          | Authoritative | Notes |
+/// |----------------|---------------|-------|
+/// | claim_id       | on-chain      | global monotonic u64 from ClaimCounter |
+/// | policy_id      | on-chain      | references Policy(holder, policy_id) |
+/// | claimant       | on-chain      | must equal policy.holder |
+/// | amount         | on-chain      | stroops; 0 < amount ≤ policy.coverage |
+/// | details        | on-chain      | ≤ DETAILS_MAX_LEN bytes |
+/// | image_urls     | on-chain      | ≤ IMAGE_URLS_MAX items, each ≤ IMAGE_URL_MAX_LEN |
+/// | status         | on-chain      | ClaimStatus state machine |
+/// | approve_votes  | on-chain      | running tally; reconciles with Vote entries |
+/// | reject_votes   | on-chain      | running tally; reconciles with Vote entries |
+/// | vote_deadline  | on-chain      | ledger seq after which no new votes accepted |
+/// | snapshot_size  | on-chain      | number of eligible voters at filing time |
 #[contracttype]
 #[derive(Clone)]
 pub struct Claim {
@@ -149,4 +189,10 @@ pub struct Claim {
     pub status: ClaimStatus,
     pub approve_votes: u32,
     pub reject_votes: u32,
+    /// Ledger sequence after which `vote_on_claim` is rejected.
+    /// Set to `env.ledger().sequence() + VOTE_WINDOW_LEDGERS` at filing.
+    pub vote_deadline: u32,
+    /// Number of addresses in the voter snapshot taken at filing.
+    /// Used by the frontend to display quorum progress.
+    pub snapshot_size: u32,
 }

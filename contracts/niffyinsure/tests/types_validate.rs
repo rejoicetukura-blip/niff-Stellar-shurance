@@ -34,6 +34,8 @@ fn dummy_claim(env: &Env, amount: i128, status: ClaimStatus) -> Claim {
         status,
         approve_votes: 0,
         reject_votes: 0,
+        vote_deadline: 1000,
+        snapshot_size: 3,
     }
 }
 

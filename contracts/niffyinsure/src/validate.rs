@@ -18,7 +18,6 @@ pub enum Error {
     ImageUrlTooLong,
     ReasonTooLong,
     ClaimAlreadyTerminal,
-    DuplicateVote,
 }
 
 // ── Policy validators ─────────────────────────────────────────────────────────
