@@ -1,8 +1,6 @@
 use soroban_sdk::{Address, Env};
 
 /// Invoke the SEP-41 `transfer` entry-point on an external token contract.
-/// Called from claim.rs once feat/claim-voting lands.
-#[allow(dead_code)]
 pub fn transfer(env: &Env, token: &Address, from: &Address, to: &Address, amount: i128) {
     let args = soroban_sdk::vec![
         env,

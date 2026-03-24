@@ -15,14 +15,17 @@ pub enum DataKey {
     Voters,
     /// Global monotonic claim id counter
     ClaimCounter,
+    /// Pause flag: if present and true the contract is paused
+    Paused,
+    /// Pending admin address for two-step rotation handoff.
+    /// Set by current admin via propose_admin; cleared on accept_admin or cancel_admin.
+    PendingAdmin,
 }
 
 pub fn set_admin(env: &Env, admin: &Address) {
     env.storage().instance().set(&DataKey::Admin, admin);
 }
 
-/// Used by initialize and admin drain (feat/admin).
-#[allow(dead_code)]
 pub fn get_admin(env: &Env) -> Address {
     env.storage().instance().get(&DataKey::Admin).unwrap()
 }
@@ -31,10 +34,33 @@ pub fn set_token(env: &Env, token: &Address) {
     env.storage().instance().set(&DataKey::Token, token);
 }
 
-/// Used by claim payout (feat/claim-voting).
-#[allow(dead_code)]
 pub fn get_token(env: &Env) -> Address {
     env.storage().instance().get(&DataKey::Token).unwrap()
+}
+
+pub fn is_paused(env: &Env) -> bool {
+    env.storage()
+        .instance()
+        .get(&DataKey::Paused)
+        .unwrap_or(false)
+}
+
+pub fn set_paused(env: &Env, paused: bool) {
+    env.storage().instance().set(&DataKey::Paused, &paused);
+}
+
+pub fn get_pending_admin(env: &Env) -> Option<Address> {
+    env.storage().instance().get(&DataKey::PendingAdmin)
+}
+
+pub fn set_pending_admin(env: &Env, pending: &Address) {
+    env.storage()
+        .instance()
+        .set(&DataKey::PendingAdmin, pending);
+}
+
+pub fn clear_pending_admin(env: &Env) {
+    env.storage().instance().remove(&DataKey::PendingAdmin);
 }
 
 /// Returns the next policy_id for `holder` and increments the counter.
