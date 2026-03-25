@@ -38,9 +38,7 @@ pub fn generate_premium(
     if risk_score == 0 || risk_score > 10 {
         return Err(QuoteError::InvalidRiskScore);
     }
-    if QUOTE_TTL_LEDGERS == 0 {
-        return Err(QuoteError::InvalidQuoteTtl);
-    }
+    // QUOTE_TTL_LEDGERS is a compile-time constant > 0; no runtime check needed.
 
     let total = premium::compute_premium_checked(&policy_type, &region, age, risk_score)
         .ok_or(QuoteError::ArithmeticOverflow)?;

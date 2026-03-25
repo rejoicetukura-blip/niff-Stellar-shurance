@@ -56,6 +56,7 @@ pub fn get_token(env: &Env) -> Address {
 
 /// Returns the next policy_id for `holder` and increments the counter.
 /// Used by feat/policy-lifecycle.
+/// Optimization: key built once, reused for both read and write (saves 1 key allocation).
 #[allow(dead_code)]
 pub fn next_policy_id(env: &Env, holder: &Address) -> u32 {
     let key = DataKey::PolicyCounter(holder.clone());
@@ -66,6 +67,7 @@ pub fn next_policy_id(env: &Env, holder: &Address) -> u32 {
 
 /// Returns the next global claim_id and increments the counter.
 /// Used by feat/claim-voting.
+/// Optimization: single instance-storage read+write (cheapest storage tier).
 #[allow(dead_code)]
 pub fn next_claim_id(env: &Env) -> u64 {
     let next: u64 = env
