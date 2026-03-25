@@ -110,8 +110,8 @@ impl NiffyInsure {
         claim::get_claim(&env, claim_id)
     }
 
-    pub fn get_claim_counter(env: Env) -> u64 {
-        storage::get_claim_counter(&env)
+pub fn get_claim_counter(env: Env) -> u64 {
+        storage::next_claim_id(&env) - 1  // last issued
     }
 
     pub fn get_policy_counter(env: Env, holder: Address) -> u32 {
@@ -122,9 +122,7 @@ impl NiffyInsure {
         storage::has_policy(&env, &holder, policy_id)
     }
 
-    pub fn is_paused(env: Env) -> bool {
-        storage::is_paused(&env)
-    }
+// Keep only one is_paused
 
     pub fn get_voters(env: Env) -> Vec<Address> {
         storage::get_voters(&env)
@@ -157,6 +155,24 @@ impl NiffyInsure {
     /// Read-only: number of active policies for a holder (= vote weight).
     pub fn get_active_policy_count(env: Env, holder: Address) -> u32 {
         storage::get_active_policy_count(&env, &holder)
+    }
+
+    /// File a new claim against an active policy. Authenticates claimant as policyholder.
+    /// Validates coverage bounds (incl 10% deductible), evidence limits, no concurrent open claim.
+    /// Increments global claim_id, persists Claim{status=Processing, snapshot_voters}, emits ClaimFiled.
+    pub fn file_claim(
+        env: Env,
+        holder: Address,
+        policy_id: u32,
+        amount: i128,
+        evidence: Vec<String>,
+        details_hash: String,
+    ) -> Result<u64, validate::Error> {
+        holder.require_auth();
+        if storage::is_paused(&env) {
+            panic!("contract paused");
+        }
+        claim::file_claim(&env, holder, policy_id, amount, evidence, details_hash)
     }
 
     // ── Admin / pause ────────────────────────────────────────────────────
@@ -227,4 +243,4 @@ impl NiffyInsure {
 }
 
 // Re-export error type so tests can reference it without the module path.
-pub use claim::ContractError;
+// pub use claim::ContractError;  // Removed: use validate::Error directly

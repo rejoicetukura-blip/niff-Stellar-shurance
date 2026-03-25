@@ -1,7 +1,6 @@
 use soroban_sdk::{contracttype, Address, Env, Vec};
 
 use crate::types::{Claim, Policy, VoteOption};
-use soroban_sdk::{contracttype, Address, Env, Vec};
 
 // ── TTL constants ─────────────────────────────────────────────────────────────
 //
@@ -37,6 +36,8 @@ pub enum DataKey {
     Policy(Address, u32),
     /// Full claim record keyed by global claim_id.
     Claim(u64),
+    /// Temp key for open claim check (policy_holder, policy_id) -> bool
+    OpenClaim(Address, u32),
     /// (claim_id, voter_address) → VoteOption; immutable after first write
     Vote(u64, Address),
     /// Vec<Address> of all current active policyholders (live voter set)
@@ -53,6 +54,14 @@ pub enum DataKey {
 }
 
 // ── Instance bump ─────────────────────────────────────────────────────────────
+
+pub fn has_open_claim(env: &Env, holder: &Address, policy_id: u32) -> bool {
+    env.storage().instance().get(&DataKey::OpenClaim(holder.clone(), policy_id)).unwrap_or(false)
+}
+
+pub fn set_open_claim(env: &Env, holder: &Address, policy_id: u32, open: bool) {
+    env.storage().instance().set(&DataKey::OpenClaim(holder.clone(), policy_id), &open);
+}
 
 /// Extend instance storage TTL so admin/token/counters are never evicted.
 /// Call at the start of every mutating entrypoint.
@@ -89,6 +98,12 @@ pub fn get_token(env: &Env) -> Address {
         .get(&DataKey::Token)
         .expect("contract not initialised: token missing")
 }
+
+pub fn set_multiplier_table(env: &Env, table: &MultiplierTable) {
+    env.storage().instance().set(&DataKey::PremiumTable, table);
+}
+
+use crate::types::MultiplierTable;
 
 pub fn set_multiplier_table(env: &Env, table: &MultiplierTable) {
     env.storage().instance().set(&DataKey::PremiumTable, table);

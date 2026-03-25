@@ -64,7 +64,7 @@ fn check_treasury_balance(
 
 fn emit_claim_processed(env: &Env, claim: &Claim) {
     env.events().publish(
-        (symbol_short!("claim_paid"), claim.claim_id),
+(symbol_short!("c_paid"), claim.claim_id),
         ClaimProcessed {
             claim_id: claim.claim_id,
             recipient: claim.claimant.clone(),

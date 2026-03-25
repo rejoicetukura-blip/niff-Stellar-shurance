@@ -41,6 +41,9 @@ pub enum Error {
     InsufficientTreasury = 30,
     AlreadyPaid = 31,
     ClaimNotApproved = 32,
+    DuplicateOpenClaim = 33,
+    ExcessiveEvidenceBytes = 34,
+    PolicyNotFound = 35,
 }
 
 pub fn check_policy(policy: &Policy) -> Result<(), Error> {

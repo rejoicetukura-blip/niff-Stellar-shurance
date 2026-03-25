@@ -76,6 +76,7 @@ pub enum CoverageType {
 #[contracttype]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ClaimStatus {
+    Processing,
     Pending,
     Approved,
     Paid,
