@@ -39,8 +39,11 @@ pub enum DataKey {
     Claim(u64),
     /// (claim_id, voter_address) → VoteOption; immutable after first write
     Vote(u64, Address),
-    /// Vec<Address> of all current active policyholders (voters)
+    /// Vec<Address> of all current active policyholders (live voter set)
     Voters,
+    /// Vec<Address> snapshot of eligible voters captured at claim-filing time.
+    /// Keyed per claim so each claim has an independent, immutable electorate.
+    ClaimVoters(u64),
     /// Global monotonic claim id counter
     ClaimCounter,
     /// Contract pause flag (bool). Missing ≡ not paused.

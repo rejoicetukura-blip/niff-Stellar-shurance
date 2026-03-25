@@ -186,4 +186,45 @@ impl NiffyInsure {
     // ── Admin / treasury ─────────────────────────────────────────────────
     // drain, set_paused
     // implemented in token.rs — issue: feat/admin
+
+    // ── Test-only helpers ─────────────────────────────────────────────────
+    // These are NOT part of the production ABI; they exist solely to let
+    // integration tests seed state without the full policy-lifecycle feature.
+    // Gated behind the `testutils` feature so they are excluded from WASM builds.
+
+    /// Seed a policy record and register the holder as a voter.
+    #[cfg(feature = "testutils")]
+    pub fn test_seed_policy(
+        env: Env,
+        holder: Address,
+        policy_id: u32,
+        coverage: i128,
+        end_ledger: u32,
+    ) {
+        use crate::types::{Policy, PolicyType, RegionTier};
+        let policy = Policy {
+            holder: holder.clone(),
+            policy_id,
+            policy_type: PolicyType::Auto,
+            region: RegionTier::Medium,
+            premium: 10_000_000,
+            coverage,
+            is_active: true,
+            start_ledger: 1,
+            end_ledger,
+        };
+        env.storage()
+            .persistent()
+            .set(&storage::DataKey::Policy(holder.clone(), policy_id), &policy);
+        storage::add_voter(&env, &holder);
+    }
+
+    /// Remove a holder from the live voter set (simulates policy termination).
+    #[cfg(feature = "testutils")]
+    pub fn test_remove_voter(env: Env, holder: Address) {
+        storage::remove_voter(&env, &holder);
+    }
 }
+
+// Re-export error type so tests can reference it without the module path.
+pub use claim::ContractError;
